@@ -86,11 +86,17 @@ func handleNotificationStream(server *VirtualServer, w http.ResponseWriter, r *h
 	w.Header().Set("Connection", "keep-alive")
 	flusher.Flush()
 
+	ch := server.Subscribe()
+	defer server.Unsubscribe()
+
 	for {
 		select {
 		case <-r.Context().Done():
 			return
-		case msg := <-server.notifications:
+		case msg, ok := <-ch:
+			if !ok {
+				return
+			}
 			fmt.Fprintf(w, "event: message\ndata: %s\n\n", msg)
 			flusher.Flush()
 		}

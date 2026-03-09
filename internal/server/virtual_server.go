@@ -13,19 +13,19 @@ import (
 )
 
 type VirtualServer struct {
-	ID            int
-	tools         []tools.Tool
-	toolsMu       sync.RWMutex
-	notifications chan json.RawMessage
-	cfg           Config
+	ID         int
+	tools      []tools.Tool
+	toolsMu    sync.RWMutex
+	subscriber chan json.RawMessage
+	subMu      sync.Mutex
+	cfg        Config
 }
 
 func NewVirtualServer(id int, cfg Config) *VirtualServer {
 	return &VirtualServer{
-		ID:            id,
-		tools:         tools.GenerateRandom(cfg.MinTools, cfg.MaxTools),
-		notifications: make(chan json.RawMessage, 16),
-		cfg:           cfg,
+		ID:    id,
+		tools: tools.GenerateRandom(cfg.MinTools, cfg.MaxTools),
+		cfg:   cfg,
 	}
 }
 
@@ -43,9 +43,32 @@ func (vs *VirtualServer) ToolCount() int {
 	return len(vs.tools)
 }
 
+func (vs *VirtualServer) Subscribe() chan json.RawMessage {
+	ch := make(chan json.RawMessage, 16)
+	vs.subMu.Lock()
+	vs.subscriber = ch
+	vs.subMu.Unlock()
+	return ch
+}
+
+func (vs *VirtualServer) Unsubscribe() {
+	vs.subMu.Lock()
+	if vs.subscriber != nil {
+		close(vs.subscriber)
+		vs.subscriber = nil
+	}
+	vs.subMu.Unlock()
+}
+
 func (vs *VirtualServer) notify(data json.RawMessage) {
+	vs.subMu.Lock()
+	ch := vs.subscriber
+	vs.subMu.Unlock()
+	if ch == nil {
+		return
+	}
 	select {
-	case vs.notifications <- data:
+	case ch <- data:
 	default:
 	}
 }
