@@ -13,61 +13,39 @@ import (
 )
 
 type VirtualServer struct {
-	ID         int
-	tools      []tools.Tool
-	stateMu    sync.RWMutex
-	subscriber chan json.RawMessage
-	cfg        Config
+	ID            int
+	tools         []tools.Tool
+	toolsMu       sync.RWMutex
+	notifications chan json.RawMessage
+	cfg           Config
 }
 
 func NewVirtualServer(id int, cfg Config) *VirtualServer {
 	return &VirtualServer{
-		ID:    id,
-		tools: tools.GenerateRandom(cfg.MinTools, cfg.MaxTools),
-		cfg:   cfg,
+		ID:            id,
+		tools:         tools.GenerateRandom(cfg.MinTools, cfg.MaxTools),
+		notifications: make(chan json.RawMessage, 16),
+		cfg:           cfg,
 	}
 }
 
 func (vs *VirtualServer) GetTools() []tools.Tool {
-	vs.stateMu.RLock()
-	defer vs.stateMu.RUnlock()
+	vs.toolsMu.RLock()
+	defer vs.toolsMu.RUnlock()
 	result := make([]tools.Tool, len(vs.tools))
 	copy(result, vs.tools)
 	return result
 }
 
 func (vs *VirtualServer) ToolCount() int {
-	vs.stateMu.RLock()
-	defer vs.stateMu.RUnlock()
+	vs.toolsMu.RLock()
+	defer vs.toolsMu.RUnlock()
 	return len(vs.tools)
 }
 
-func (vs *VirtualServer) Subscribe() chan json.RawMessage {
-	ch := make(chan json.RawMessage, 16)
-	vs.stateMu.Lock()
-	vs.subscriber = ch
-	vs.stateMu.Unlock()
-	return ch
-}
-
-func (vs *VirtualServer) Unsubscribe() {
-	vs.stateMu.Lock()
-	if vs.subscriber != nil {
-		close(vs.subscriber)
-		vs.subscriber = nil
-	}
-	vs.stateMu.Unlock()
-}
-
 func (vs *VirtualServer) notify(data json.RawMessage) {
-	vs.stateMu.RLock()
-	ch := vs.subscriber
-	vs.stateMu.RUnlock()
-	if ch == nil {
-		return
-	}
 	select {
-	case ch <- data:
+	case vs.notifications <- data:
 	default:
 	}
 }
@@ -83,11 +61,11 @@ func (vs *VirtualServer) mutateLoop(ctx context.Context) {
 		case <-time.After(interval):
 		}
 
-		vs.stateMu.Lock()
+		vs.toolsMu.Lock()
 		newTools, event := tools.Mutate(vs.tools)
 		vs.tools = newTools
 		count := len(newTools)
-		vs.stateMu.Unlock()
+		vs.toolsMu.Unlock()
 
 		mutationType := "added"
 		if event.Type == tools.MutationRemove {
