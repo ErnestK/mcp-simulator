@@ -90,10 +90,13 @@ func (vs *VirtualServer) mutateLoop(ctx context.Context) {
 		count := len(newTools)
 		vs.toolsMu.Unlock()
 
-		mutationType := "added"
-		if event.Type == tools.MutationRemove {
+		var mutationType string
+		switch event.Type {
+		case tools.MutationAdd:
+			mutationType = "added"
+		case tools.MutationRemove:
 			mutationType = "removed"
-		} else if event.Type == tools.MutationUpdate {
+		case tools.MutationUpdate:
 			mutationType = "updated"
 		}
 		log.Printf("Server %d: %s tool %q (now %d tools)", vs.ID, mutationType, event.ToolName, count)

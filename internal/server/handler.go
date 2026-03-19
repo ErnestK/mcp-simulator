@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 
 	"github.com/ernestkhasanzhinov/mcp-simulator/internal/jsonrpc"
@@ -97,7 +98,10 @@ func handleNotificationStream(server *VirtualServer, w http.ResponseWriter, r *h
 			if !ok {
 				return
 			}
-			fmt.Fprintf(w, "event: message\ndata: %s\n\n", msg)
+			if _, err := fmt.Fprintf(w, "event: message\ndata: %s\n\n", msg); err != nil {
+				log.Printf("write sse event: %v", err)
+				return
+			}
 			flusher.Flush()
 		}
 	}
@@ -106,5 +110,7 @@ func handleNotificationStream(server *VirtualServer, w http.ResponseWriter, r *h
 func writeJSON(w http.ResponseWriter, status int, value interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(value)
+	if err := json.NewEncoder(w).Encode(value); err != nil {
+		log.Printf("write json response: %v", err)
+	}
 }
