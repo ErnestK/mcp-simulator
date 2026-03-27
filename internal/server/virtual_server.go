@@ -78,10 +78,12 @@ func (vs *VirtualServer) mutateLoop(ctx context.Context) {
 		interval := vs.cfg.MinMutationInterval +
 			time.Duration(rand.Int63n(int64(vs.cfg.MaxMutationInterval-vs.cfg.MinMutationInterval)))
 
+		timer := time.NewTimer(interval)
 		select {
 		case <-ctx.Done():
+			timer.Stop()
 			return
-		case <-time.After(interval):
+		case <-timer.C:
 		}
 
 		vs.toolsMu.Lock()
