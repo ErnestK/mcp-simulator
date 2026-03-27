@@ -73,11 +73,13 @@ curl -N -X POST http://localhost:9090/server/0/mcp \
 ## Architecture
 
 ```
-cmd/simulator/main.go        Entry point, CLI flags, graceful shutdown
-internal/jsonrpc/jsonrpc.go   JSON-RPC 2.0 request/response/notification structs
-internal/tools/tools.go       Random tool generation and mutation
-internal/server/server.go     VirtualServer state, pub/sub, mutation loop, Manager
-internal/server/handler.go    HTTP handler, JSON-RPC dispatch, SSE streaming
+cmd/simulator/main.go              Entry point, CLI flags, graceful shutdown
+internal/jsonrpc/schema.go         JSON-RPC 2.0 request/response/notification structs
+internal/tools/tools.go            Random tool generation and mutation
+internal/server/config.go          Server configuration
+internal/server/registry.go        Virtual server registry, HTTP routing
+internal/server/virtual_server.go  VirtualServer state, pub/sub, mutation loop
+internal/server/handler.go         HTTP handler, JSON-RPC dispatch, SSE streaming
 ```
 
 - One goroutine per server runs a mutation loop (add/remove/update a random tool at random intervals)
